@@ -3,11 +3,30 @@ import tempfile
 import zipfile
 import os
 from pathlib import Path
-from chart_generator import run_analysis  # 导入你刚才写的函数
+import pandas as pd
+from chart_generator import run_analysis
 
-st.set_page_config(page_title="多人一诉可视化工具", layout="wide")
+st.set_page_config(page_title="多人一诉可视化分析工具", layout="wide")
 st.title("📊 多人一诉数据分析工具")
 st.markdown("上传三个 Excel 文件（当前月、同比、环比），自动生成所有图表并打包下载。")
+st.info("📌 文件必须包含以下列：**子场景**、**一级业务**、**二级业务**、**每月**")
+
+def validate_excel_columns(file_bytes, required_columns, file_name="文件"):
+    """校验 Excel 文件是否包含所需的列"""
+    try:
+        # 重置文件指针到开头
+        file_bytes.seek(0)
+        df = pd.read_excel(file_bytes, nrows=0)
+        actual_columns = set(df.columns)
+        required_set = set(required_columns)
+        missing = required_set - actual_columns
+        if missing:
+            st.error(f"❌ {file_name} 缺少必需的列：{', '.join(missing)}。请确保包含：{', '.join(required_columns)}")
+            return False
+        return True
+    except Exception as e:
+        st.error(f"❌ 读取 {file_name} 失败：{e}")
+        return False
 
 # 文件上传区域
 col1, col2, col3 = st.columns(3)
@@ -23,6 +42,8 @@ if st.button("🚀 生成图表", type="primary"):
         st.error("请至少上传当前月数据文件")
         st.stop()
 
+    required_cols = ['子场景', '一级业务', '二级业务', '每月']
+
     # 用临时目录存放上传的文件和生成的图片
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
@@ -32,6 +53,9 @@ if st.button("🚀 生成图表", type="primary"):
         with open(current_path, "wb") as f:
             f.write(current_file.getbuffer())
 
+        if not validate_excel_columns(current_file, required_cols, "当前月文件"):
+            st.stop()
+
         # 保存同比文件（如果有）
         yoy_path = None
         if yoy_file is not None:
@@ -39,12 +63,18 @@ if st.button("🚀 生成图表", type="primary"):
             with open(yoy_path, "wb") as f:
                 f.write(yoy_file.getbuffer())
 
+            if not validate_excel_columns(yoy_file, required_cols, "同比文件"):
+                st.stop()
+
         # 保存环比文件（如果有）
         mom_path = None
         if mom_file is not None:
             mom_path = tmp_path / "mom.xlsx"
             with open(mom_path, "wb") as f:
                 f.write(mom_file.getbuffer())
+
+            if not validate_excel_columns(mom_file, required_cols, "环比文件"):
+                st.stop()
 
         # 输出目录
         img_dir = tmp_path / "charts"
