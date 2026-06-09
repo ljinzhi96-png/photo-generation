@@ -13,12 +13,36 @@ import numpy as np
 from pathlib import Path
 import argparse
 import warnings
+import matplotlib.font_manager as fm
 
 warnings.filterwarnings('ignore')
 
 # 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei']
+# plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei']
+# plt.rcParams['axes.unicode_minus'] = False
+
+
+# 获取当前文件所在目录，并构造字体文件的完整路径
+current_dir = Path(__file__).parent
+font_path = current_dir / 'fonts' / 'SimHei.ttf'   # 确保文件名一致
+
+# 检查字体文件是否存在
+if font_path.exists():
+    # 注册字体到 matplotlib 全局字体管理器
+    fm.fontManager.addfont(str(font_path))
+    # 获取字体属性
+    prop = fm.FontProperties(fname=str(font_path))
+    # 设置 matplotlib 默认字体为该字体的名称
+    plt.rcParams['font.family'] = prop.get_name()
+    print(f"成功加载中文字体：{prop.get_name()}")
+else:
+    # 如果找不到字体文件，则回退到系统通用中文字体（用于本地测试）
+    plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei', 'DejaVu Sans', 'SimHei', 'Microsoft YaHei']
+    print(f"警告：字体文件 {font_path} 不存在，使用备用字体")
+
+# 解决负号显示问题
 plt.rcParams['axes.unicode_minus'] = False
+
 
 # 子场景映射
 SUB_SCENE_MAP = {
