@@ -16,7 +16,7 @@ def validate_excel_columns(file_bytes, required_columns, file_name="文件"):
     try:
         # 重置文件指针到开头
         file_bytes.seek(0)
-        df = pd.read_excel(file_bytes, nrows=0)
+        df = pd.read_excel(file_bytes, nrows=0,engine='openpyxl')
         actual_columns = set(df.columns)
         required_set = set(required_columns)
         missing = required_set - actual_columns
@@ -37,7 +37,7 @@ with col2:
 with col3:
     mom_file = st.file_uploader("📁 环比数据 (上月, 可选)", type=["xlsx"], key="mom")
 
-if st.button("🚀 生成图表", type="primary"):
+if st.button("🚀 生成图表"):
     if current_file is None:
         st.error("请至少上传当前月数据文件")
         st.stop()
@@ -49,7 +49,9 @@ if st.button("🚀 生成图表", type="primary"):
         tmp_path = Path(tmpdir)
 
         # 保存当前文件
-        current_path = tmp_path / "current.xlsx"
+        # current_path = tmp_path / "current.xlsx"
+        # current_path = tmp_path / current_file.name
+        current_path = tmp_path / f"current_{current_file.name}"    #加前缀，避免同名文件被覆盖
         with open(current_path, "wb") as f:
             f.write(current_file.getbuffer())
 
@@ -59,7 +61,9 @@ if st.button("🚀 生成图表", type="primary"):
         # 保存同比文件（如果有）
         yoy_path = None
         if yoy_file is not None:
-            yoy_path = tmp_path / "yoy.xlsx"
+            # yoy_path = tmp_path / "yoy.xlsx"
+            # yoy_path = tmp_path / yoy_file.name
+            yoy_path = tmp_path / f"yoy_{yoy_file.name}"
             with open(yoy_path, "wb") as f:
                 f.write(yoy_file.getbuffer())
 
@@ -69,7 +73,9 @@ if st.button("🚀 生成图表", type="primary"):
         # 保存环比文件（如果有）
         mom_path = None
         if mom_file is not None:
-            mom_path = tmp_path / "mom.xlsx"
+            # mom_path = tmp_path / "mom.xlsx"
+            # mom_path = tmp_path / mom_file.name
+            mom_path = tmp_path / f"mom_{mom_file.name}"
             with open(mom_path, "wb") as f:
                 f.write(mom_file.getbuffer())
 

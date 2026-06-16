@@ -80,9 +80,13 @@ def clean_biz_name(name):
     if not isinstance(name, str):
         return str(name)
     # 删除中文括号内的数字，如（10）、（5）
-    name = re.sub(r'[（(]\d+[）)]', '', name)
-    # 删除英文括号内的数字，如(10)
-    name = re.sub(r'\(\d+\)', '', name)
+    # name = re.sub(r'[（(]\d+[）)]', '', name)
+    # # 删除英文括号内的数字，如(10)
+    # name = re.sub(r'\(\d+\)', '', name)
+    # 删除中文括号 （...） 及其内部任意字符
+    name = re.sub(r'（[^）]*）', '', name)
+    # 删除英文括号 (...) 及其内部任意字符
+    name = re.sub(r'\([^)]*\)', '', name)
     name = name.strip()
     # 如果清洗后为空（极少情况），保留原名称
     if not name:
@@ -101,7 +105,7 @@ def load_summary_data(excel_path):
     if excel_path is None or not Path(excel_path).exists():
         return None, None, None, None
 
-    df = pd.read_excel(excel_path, dtype=str)
+    df = pd.read_excel(excel_path, dtype=str,engine='openpyxl')
     df['子场景'] = df['子场景'].ffill()
     df['一级业务'] = df['一级业务'].ffill()
     df['二级业务'] = df['二级业务'].ffill()
@@ -137,10 +141,14 @@ def extract_month_from_path(file_path):
     """从文件路径中提取形如 202603 的6位数字，若失败返回'对比期'"""
     if file_path is None:
         return '对比期'
-    match = re.search(r'(\d{6})', str(file_path))
+    stem = Path(file_path).stem
+    # match = re.search(r'(\d{6})', str(file_path))
+    # match = re.match(r'(\d{6})', stem)  # 匹配开头的连续6位数字
+    match = re.search(r'(\d{6})', stem)   #
     if match:
         return match.group(1)
     return '对比期'
+
 
 
 def plot_overall_fig1(biz_total, output_dir):
@@ -163,6 +171,9 @@ def plot_overall_fig1(biz_total, output_dir):
     for bar in bars:
         h = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 2., h + 0.5, f'{int(h)}', ha='center', va='bottom')
+
+    max_val = max(values)
+    plt.ylim(top=max_val + 5)
     plt.tight_layout()
     plt.savefig(output_dir / '整体分析_图1_高频二级业务.png', dpi=150)
     plt.close()
@@ -179,10 +190,6 @@ def plot_overall_fig2(event_total, output_dir):
         return
     labels, values = zip(*sorted_items)
 
-    # n = len(labels)
-    # fig_width = n * 0.8 + 2
-    # plt.figure(figsize=(fig_width, 6))
-
     plt.figure(figsize=(12, 6))
     bars = plt.bar(labels, values, color='coral',width=0.4)
     plt.title('排名前五的高频事件', fontsize=14)
@@ -192,6 +199,9 @@ def plot_overall_fig2(event_total, output_dir):
     for bar in bars:
         h = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 2., h + 0.5, f'{int(h)}', ha='center', va='bottom')
+
+    max_val = max(values)
+    plt.ylim(top=max_val + 5)
     plt.tight_layout()
     plt.savefig(output_dir / '整体分析_图2_高频事件.png', dpi=150)
     plt.close()
@@ -244,10 +254,22 @@ def plot_overall_fig3(current_sub, yoy_sub, mom_sub, output_dir):
     ax.legend(loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=2)
 
     # 根据数据范围自动调整y轴，无需为额外标注留空间
+    # all_rates = yoy_rates + mom_rates
+    # y_max = max(max(all_rates), 10) + 30
+    # y_min = min(min(all_rates), -10) - 15  # 稍微留一点空间即可
+    # ax.set_ylim(y_min, y_max)
+
     all_rates = yoy_rates + mom_rates
-    y_max = max(max(all_rates), 10) + 10
-    y_min = min(min(all_rates), -10) - 5  # 稍微留一点空间即可
+    max_rate = max(all_rates)
+    min_rate = min(all_rates)
+    if max_rate > 600:
+        y_max = max(max_rate, 10) + 60
+        y_min = min(min_rate, -10) - 30
+    else:
+        y_max = max(max_rate, 10) + 30
+        y_min = min(min_rate, -10) - 15
     ax.set_ylim(y_min, y_max)
+
 
     ax.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
@@ -325,11 +347,11 @@ def plot_sub_change(sub_scene, current_biz, compare_biz, output_dir, label, comp
     for bar in bars1:
         h = bar.get_height()
         if h > 0:
-            ax1.text(bar.get_x() + bar.get_width()/2., h + 0.5, f'{int(h)}', ha='center', va='bottom', fontsize=8, color='steelblue')
+            ax1.text(bar.get_x() + bar.get_width()/2., h + 0.3, f'{int(h)}', ha='center', va='bottom', fontsize=10, color='steelblue')
     for bar in bars2:
         h = bar.get_height()
         if h > 0:
-            ax1.text(bar.get_x() + bar.get_width()/2., h + 0.5, f'{int(h)}', ha='center', va='bottom', fontsize=8, color='orange')
+            ax1.text(bar.get_x() + bar.get_width()/2., h + 0.3, f'{int(h)}', ha='center', va='bottom', fontsize=10, color='orange')
 
     # 折线图（增长率）
     ax2 = ax1.twinx()
@@ -337,7 +359,7 @@ def plot_sub_change(sub_scene, current_biz, compare_biz, output_dir, label, comp
     ax2.set_ylabel('增长率 (%)', fontsize=12, color='red')
     ax2.tick_params(axis='y', labelcolor='red')
     for i, g in enumerate(growth):
-        ax2.text(i, g + 0.5, f'{g:.1f}%', ha='center', va='bottom', fontsize=9, color='red')
+        ax2.text(i, g + 3, f'{g:.1f}%', ha='center', va='bottom', fontsize=10, color='red')
 
     # 合并图例
     lines1, labels1 = ax1.get_legend_handles_labels()
@@ -345,6 +367,30 @@ def plot_sub_change(sub_scene, current_biz, compare_biz, output_dir, label, comp
     # ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
     ax1.legend(lines1 + lines2, labels1 + labels2,
                loc='lower center', bbox_to_anchor=(0.5, 1.12), ncol=3)
+
+    # 增加上部留白：根据当前数据最大值动态设置纵轴上限
+    max_cur = max(cur_vals) if cur_vals else 0
+    max_comp = max(comp_vals) if comp_vals else 0
+    max_val = max(max_cur, max_comp)
+    if max_val > 0:
+        ax1.set_ylim(top=max_val + 10)
+
+    # 增加折线图上留白（右轴）
+    positive_growth = [g for g in growth if g > 0]
+    max_growth = max(positive_growth) if positive_growth else 0
+    if max_growth > 0:
+        if max_growth >450:
+            ax2.set_ylim(top=max_growth + 50)
+        else:
+        # 可以根据需要选择固定增量或比例，例如固定增加 5 个百分点
+            ax2.set_ylim(top=max_growth + 20)
+    else:
+        # 如果没有正增长率，也设置一个合理的上界（如 10%）
+        ax2.set_ylim(top=10)
+
+    min_growth = min(growth) if growth else 0
+    ax2.set_ylim(bottom=min_growth - 15)      #下方留白
+
 
     title_name = SUB_SCENE_MAP.get(sub_scene, sub_scene)
     change_type = '同比' if label == '同比' else '环比'
